@@ -1,5 +1,5 @@
 diff --git a/gc.c b/gc.c
-index 66ce263..58e049b 100644
+index 52b1c23..f774022 100644
 --- a/gc.c
 +++ b/gc.c
 @@ -22,8 +22,16 @@
@@ -19,15 +19,15 @@ index 66ce263..58e049b 100644
  #endif
  
  #ifdef HAVE_SYS_RESOURCE_H
-@@ -40,7 +48,6 @@ void rb_io_fptr_finalize _((struct OpenFile*));
- #if !defined(setjmp) && defined(HAVE__SETJMP)
- #define setjmp(env) _setjmp(env)
+@@ -42,7 +50,6 @@ void rb_io_fptr_finalize _((struct rb_io_t*));
+ #ifdef __CYGWIN__
+ int _setjmp(), _longjmp();
  #endif
 -
  /* Make alloca work the best possible way.  */
  #ifdef __GNUC__
  # ifndef atarist
-@@ -165,8 +172,17 @@ ruby_xfree(x)
+@@ -205,8 +212,17 @@ ruby_xfree(x)
  	RUBY_CRITICAL(free(x));
  }
  
@@ -45,7 +45,7 @@ index 66ce263..58e049b 100644
  static int during_gc;
  static int need_call_final = 0;
  static st_table *finalizer_table = 0;
-@@ -201,7 +217,7 @@ rb_gc_enable()
+@@ -241,7 +257,7 @@ rb_gc_enable()
   *  Disables garbage collection, returning <code>true</code> if garbage
   *  collection was already disabled.
   *
@@ -54,7 +54,7 @@ index 66ce263..58e049b 100644
   *     GC.disable   #=> true
   *
   */
-@@ -215,6 +231,104 @@ rb_gc_disable()
+@@ -255,6 +271,104 @@ rb_gc_disable()
      return old;
  }
  
@@ -159,7 +159,7 @@ index 66ce263..58e049b 100644
  VALUE rb_mGC;
  
  static struct gc_list {
-@@ -306,7 +420,7 @@ typedef struct RVALUE {
+@@ -346,7 +460,7 @@ typedef struct RVALUE {
  static RVALUE *freelist = 0;
  static RVALUE *deferred_final_list = 0;
  
@@ -168,7 +168,7 @@ index 66ce263..58e049b 100644
  static struct heaps_slot {
      void *membase;
      RVALUE *slot;
-@@ -315,13 +429,165 @@ static struct heaps_slot {
+@@ -355,13 +469,165 @@ static struct heaps_slot {
  static int heaps_length = 0;
  static int heaps_used   = 0;
  
@@ -337,7 +337,7 @@ index 66ce263..58e049b 100644
  static void
  add_heap()
  {
-@@ -332,7 +598,7 @@ add_heap()
+@@ -372,7 +638,7 @@ add_heap()
  	struct heaps_slot *p;
  	int length;
  
@@ -346,7 +346,7 @@ index 66ce263..58e049b 100644
  	length = heaps_length*sizeof(struct heaps_slot);
  	RUBY_CRITICAL(
  	    if (heaps_used > 0) {
-@@ -348,10 +614,10 @@ add_heap()
+@@ -388,10 +654,10 @@ add_heap()
      for (;;) {
  	RUBY_CRITICAL(p = (RVALUE*)malloc(sizeof(RVALUE)*(heap_slots+1)));
  	if (p == 0) {
@@ -359,7 +359,7 @@ index 66ce263..58e049b 100644
  	    continue;
  	}
          heaps[heaps_used].membase = p;
-@@ -367,8 +633,9 @@ add_heap()
+@@ -407,8 +673,9 @@ add_heap()
      if (lomem == 0 || lomem > p) lomem = p;
      if (himem < pend) himem = pend;
      heaps_used++;
@@ -371,7 +371,7 @@ index 66ce263..58e049b 100644
  
      while (p < pend) {
  	p->as.free.flags = 0;
-@@ -1062,6 +1329,39 @@ finalize_list(p)
+@@ -1102,6 +1369,39 @@ finalize_list(p)
      }
  }
  
@@ -411,7 +411,7 @@ index 66ce263..58e049b 100644
  static void
  free_unused_heaps()
  {
-@@ -1094,12 +1394,21 @@ gc_sweep()
+@@ -1134,12 +1434,21 @@ gc_sweep()
      unsigned long live = 0;
      unsigned long free_min = 0;
  
@@ -435,7 +435,7 @@ index 66ce263..58e049b 100644
  
      if (ruby_in_compile && ruby_parser_stack_on_heap()) {
  	/* should not reclaim nodes during compilation
-@@ -1134,6 +1443,9 @@ gc_sweep()
+@@ -1174,6 +1483,9 @@ gc_sweep()
  		if (p->as.basic.flags &&
  		    ((deferred = obj_free((VALUE)p)) ||
  		     ((FL_TEST(p, FL_FINALIZE)) && need_call_final))) {
@@ -445,7 +445,7 @@ index 66ce263..58e049b 100644
  		    if (!deferred) {
  			p->as.free.flags = T_DEFERRED;
  			RDATA(p)->dfree = 0;
-@@ -1143,6 +1455,12 @@ gc_sweep()
+@@ -1183,6 +1495,12 @@ gc_sweep()
  		    final_list = p;
  		}
  		else {
@@ -458,7 +458,7 @@ index 66ce263..58e049b 100644
  		    add_freelist(p);
  		}
  		n++;
-@@ -1154,6 +1472,9 @@ gc_sweep()
+@@ -1194,6 +1512,9 @@ gc_sweep()
  	    else {
  		RBASIC(p)->flags &= ~FL_MARK;
  		live++;
@@ -468,7 +468,7 @@ index 66ce263..58e049b 100644
  	    }
  	    p++;
  	}
-@@ -1172,7 +1493,7 @@ gc_sweep()
+@@ -1212,7 +1533,7 @@ gc_sweep()
      }
      if (malloc_increase > malloc_limit) {
  	malloc_limit += (malloc_increase - malloc_limit) * (double)live / (live + freed);
@@ -477,7 +477,7 @@ index 66ce263..58e049b 100644
      }
      malloc_increase = 0;
      if (freed < free_min) {
-@@ -1180,6 +1501,20 @@ gc_sweep()
+@@ -1220,6 +1541,20 @@ gc_sweep()
      }
      during_gc = 0;
  
@@ -498,7 +498,7 @@ index 66ce263..58e049b 100644
      /* clear finalization list */
      if (final_list) {
  	deferred_final_list = final_list;
-@@ -1386,6 +1721,7 @@ garbage_collect()
+@@ -1423,6 +1758,7 @@ garbage_collect()
      struct gc_list *list;
      struct FRAME * volatile frame; /* gcc 2.7.2.3 -O2 bug??  */
      jmp_buf save_regs_gc_mark;
@@ -506,7 +506,7 @@ index 66ce263..58e049b 100644
      SET_STACK_END;
  
  #ifdef HAVE_NATIVETHREAD
-@@ -1402,6 +1738,14 @@ garbage_collect()
+@@ -1439,6 +1775,14 @@ garbage_collect()
      if (during_gc) return;
      during_gc++;
  
@@ -521,7 +521,7 @@ index 66ce263..58e049b 100644
      init_mark_stack();
  
      gc_mark((VALUE)ruby_current_node, 0);
-@@ -1477,6 +1821,17 @@ garbage_collect()
+@@ -1514,6 +1858,17 @@ garbage_collect()
      } while (!MARK_STACK_EMPTY);
  
      gc_sweep();
@@ -539,7 +539,7 @@ index 66ce263..58e049b 100644
  }
  
  void
-@@ -1658,6 +2013,7 @@ Init_heap()
+@@ -1695,6 +2050,7 @@ Init_heap()
      if (!rb_gc_stack_start) {
  	Init_stack(0);
      }
@@ -547,8 +547,8 @@ index 66ce263..58e049b 100644
      add_heap();
  }
  
-@@ -2118,6 +2474,14 @@ Init_GC()
-     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
+@@ -2163,6 +2519,14 @@ Init_GC()
+     rb_define_singleton_method(rb_mGC, "stress=", gc_stress_set, 1);
      rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
  
 +    rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
